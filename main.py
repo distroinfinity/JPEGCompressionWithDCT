@@ -4,7 +4,8 @@ from scipy.fftpack import dct
 
 #Load an image,change colour space from RGB to YCbCr
 #and store data in an array
-imgArray = numpy.array(Image.open("girl.jpg",'r').convert('YCbCr'))
+
+imgArray = numpy.array(Image.open("gr.jpg",'r').convert('YCbCr'))
 imgArray = imgArray.astype("float64")
 
 #YCbCr ranges from -127 to 128 unlike RGB which is 0-256
@@ -63,7 +64,7 @@ for i in range(0,height,8):
 #print(dctOutput)
 dctOutput = dctOutput+128
 outputImage = Image.fromarray(dctOutput).convert("RGB")
-outputImage.save('outputImage.jpg')
+outputImage.save('groutput2.jpg')
 
 """
 print(dctOutput[0:2,0:2])
