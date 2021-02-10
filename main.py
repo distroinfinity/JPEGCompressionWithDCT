@@ -1,11 +1,11 @@
 import numpy
 from PIL import Image
-from scipy.fftpack import dct
+from scipy.fftpack import dct,idct
 
 #Load an image,change colour space from RGB to YCbCr
 #and store data in an array
 
-imgArray = numpy.array(Image.open("gr.jpg",'r').convert('YCbCr'))
+imgArray = numpy.array(Image.open("grcropped.jpg",'r').convert('YCbCr'))
 imgArray = imgArray.astype("float64")
 
 #YCbCr ranges from -127 to 128 unlike RGB which is 0-256
@@ -52,10 +52,12 @@ for i in range(0,height,8):
         
         #Apply dct on 8x8 matrix
         temp = dct(dct(temp,axis=0,norm='ortho'),axis=1,norm='ortho')
+        #Quantize the DCT output
         for k in range(0,8):
             for m in range(0,8):
                 temp[k][m]=numpy.round(temp[k][m]/qt[k][m])
-        dctOutput[i:i+8,j:j+8] = temp
+        
+        dctOutput[i:i+8,j:j+8] = idct(idct(temp,axis=0,norm='ortho'),axis=1,norm='ortho')
 
         count+=1
         print(count)
@@ -64,7 +66,8 @@ for i in range(0,height,8):
 #print(dctOutput)
 dctOutput = dctOutput+128
 outputImage = Image.fromarray(dctOutput).convert("RGB")
-outputImage.save('groutput2.jpg')
+outputImage.save('output.jpg')
+
 
 """
 print(dctOutput[0:2,0:2])
@@ -74,9 +77,6 @@ print(dctOutput[2:4,0:2])
 #Downsample the colour components by a factor of 2 in both direction
 #Cb=Cb[0::2,0::2]
 #Cr=Cr[0::2,0::2]
-
-
-
 
 #outputImage = Image.fromarray(imgArray)
 #outputImage.save('outputImage.jpeg')
