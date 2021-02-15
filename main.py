@@ -1,6 +1,7 @@
 import numpy
 from PIL import Image
-from scipy.fftpack import dct,idct
+from scipy import fftpack
+
 
 def quantisation(k):
     #Quantisation table for Y component
@@ -36,51 +37,81 @@ def quantisation(k):
         return Q50
     elif k == "Q90":
         return Q90
+
+def rgb2ycbcr(im):
+    xform = numpy.array([[.299, .587, .114], [-.1687, -.3313, .5], [.5, -.4187, -.0813]])
+    ycbcr = im.dot(xform.T)
+    ycbcr[:,:,[1,2]] += 128
     
+    ycbcr.astype(dtype=numpy.uint8)
+    return ycbcr
+
+def ycbcr2rgb(im):
+    xform = numpy.array([[1, 0, 1.402], [1, -0.34414, -.71414], [1, 1.772, 0]])
+    rgb = im.astype(float)
+    rgb[:,:,[1,2]] -= 128
+    return rgb.dot(xform.T)
+    
+dct = lambda x: fftpack.dct(x, norm='ortho')
+idct = lambda x: fftpack.idct(x, norm='ortho')
 
 if __name__ == "__main__":
     #load image & convert to YCbCr colourspcae
-    imgArray = numpy.array(Image.open("grcropped.jpg",'r').convert('YCbCr'))
-    imgArray = imgArray.astype("float64")
-
-    #centre pixel values around 0
-    imgArray=imgArray[:,:,0]-128
-    #Cb=imgArray[:,:,1]-128
-    #Cr=imgArray[:,:,2]-128
-
+    imgArray = numpy.array(Image.open("mybike.jpg",'r'))
+    #print(imgArray)
+    imgArray=imgArray-128
+    imgArray = rgb2ycbcr(imgArray)
+    
     blockSize=8
     imgSize = imgArray.shape
     #make height and width a multiple of 8
-    height = imgSize[0]+(8-(imgSize[0]%8))
-    width = imgSize[1]+(8-(imgSize[1]%8))
-    
+    height = imgSize[0]+(8-(imgSize[0]))%8
+    width = imgSize[1]+(8-(imgSize[1]))%8
+    #print(height,width)
     #outplace matrix to adjust the boundary cases
-    dctOutput = numpy.zeros([height,width],float)
+    dctOutput = numpy.zeros([height,width,3],dtype=numpy.uint8)
+    #print(dctOutput[:,:,0])
     for i in range(0,imgSize[0]):
         for j in range(0,imgSize[1]):
             dctOutput[i][j]=imgArray[i][j]
-    qt=quantisation("Q50")
-    
+    #print(numpy.round(dctOutput))
+    qt=quantisation("Q90")
+    qc = [[17,18,24,47,99,99,99,99],
+          [18,21,26,66,99,99,99,99],
+          [24,26,56,99,99,99,99,99],
+          [47,66,99,99,99,99,99,99],
+          [99,99,99,99,99,99,99,99],
+          [99,99,99,99,99,99,99,99],
+          [99,99,99,99,99,99,99,99],
+          [99,99,99,99,99,99,99,99]]
+
     #Iterate on 8x8 pixel group
     for i in range(0,height,8):
         for j in range(0,width,8):
+
             #performing out-place, for more clearity 
             temp = dctOutput[i:i+8,j:j+8]
             
-            #Apply dct on 8x8 matrix
-            temp = dct(dct(temp,axis=0,norm='ortho'),axis=1,norm='ortho')
+            #print(temp[:,:,2])
+            temp = dct(dct(dct(temp).transpose(0,2,1)).transpose(2,1,0)).transpose(2,1,0).transpose(0,2,1)
+            #print(temp[:,:,2])
+
             #Quantize the DCT output
             for k in range(0,8):
                 for m in range(0,8):
-                    temp[k][m]=numpy.round(temp[k][m]/qt[k][m])
+                    temp[k][m][0]=(numpy.round(temp[k][m][0]/qt[k][m]))*qt[k][m]
+                    temp[k][m][1]=(numpy.round(temp[k][m][1]/qc[k][m]))*qc[k][m]
+                    temp[k][m][2]=(numpy.round(temp[k][m][2]/qc[k][m]))*qc[k][m]
             
-            dctOutput[i:i+8,j:j+8] = idct(idct(temp,axis=0,norm='ortho'),axis=1,norm='ortho')
-
+            #print(temp[:,:,2])
+            dctOutput[i:i+8,j:j+8] = idct(idct(idct(temp).transpose(0,2,1)).transpose(2,1,0)).transpose(2,1,0).transpose(0,2,1)
+            #print(dctOutput[:,:,2])
+            
+    
+    dctOutput = ycbcr2rgb(dctOutput)
     dctOutput = dctOutput+128
-    outputImage = Image.fromarray(dctOutput).convert("RGB")
-    outputImage.save('groutput.jpg')
-
-
-#Downsample the colour components by a factor of 2 in both direction
-#Cb=Cb[0::2,0::2]
-#Cr=Cr[0::2,0::2]
+    dctOutput = numpy.uint8(dctOutput)
+    #print(dctOutput)
+    outputImage = Image.fromarray(dctOutput)
+    outputImage.show()
+    outputImage.save('mybikeoutput.jpg')
